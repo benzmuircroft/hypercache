@@ -1,0 +1,24 @@
+{
+  "name": "hypercachedb",
+  "version": "0.0.1",
+  "description": "An implimentation of cachedb for hyperdrive",
+  "main": "driver.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/benzmuircroft/hypercachedb"
+  },
+  "dependencies": {
+    "hyperdrive": "^11.6.3"
+  },
+  "keywords": [
+    "local-first",
+    "offline-first",
+    "distributed",
+    "p2p",
+    "hyperdrive",
+    "corestore",
+    "database"
+  ],
+  "author": "Benz Muircroft",
+  "license": "MIT"
+}
