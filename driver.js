@@ -37,7 +37,8 @@ function date(d) {
   const strTime = hours + ':' + minutes + ':' + seconds + ampm;
   return days[day] + ' ' + date + ' ' + months[month] + ' ' + strTime;
 }
-const db = module.exports = {
+
+const db = {
   name: undefined,
   previous: 'protect',
   current: 'running',
@@ -444,3 +445,5 @@ const db = module.exports = {
     }
   }
 };
+
+module.exports = db;
