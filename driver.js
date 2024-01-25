@@ -100,7 +100,7 @@ const db = module.exports = {
     db.log(EMPTY, 'cache.db v 1.0.3');
     db.name = name;
     // const store = new Corestore(`./db/${name}`);
-    await store.ready();
+    // await store.ready();
     db.drive = new Hyperdrive(store); // need keypair or key ?
     await db.drive.ready();
     const trim = db.drive.db.core.length; // keep tiny on startup
