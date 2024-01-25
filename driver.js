@@ -1,11 +1,11 @@
 const fs = require('fs').promises;
 // const Corestore = require('corestore');
 const Hyperdrive = require('hyperdrive');
-const copy = require(path.join(__dirname, '..', 'util', 'copy.js'))({ proto: true, circles: false });
-const CODE = require(path.join(__dirname, '..', 'util', 'CODE.js'));
-const fast = require(path.join(__dirname, '..', 'util', 'to-fast-properties.js'));
-const dbUG = require(path.join(__dirname, '..', 'util', 'dbUG.js'));
-const cc = require(path.join(__dirname, '..', 'util', 'cc.js'));
+const copy = require(path.join(__dirname, '..', 'src', 'util', 'copy.js'))({ proto: true, circles: false });
+const CODE = require(path.join(__dirname, '..', 'src', 'util', 'CODE.js'));
+const fast = require(path.join(__dirname, '..', 'src', 'util', 'to-fast-properties.js'));
+const dbUG = require(path.join(__dirname, '..', 'src', 'util', 'dbUG.js'));
+const cc = require(path.join(__dirname, '..', 'src', 'util', 'cc.js'));
 const SAFE = { stringify: require(path.join(__dirname, '..', 'node_modules', 'json-stringify-safe')) };
 const EMPTY = { NET: 'live' };
 const GUB = {
@@ -17,8 +17,7 @@ const GUB = {
   }
 };
 
-await fs.writeFile(path.join(__dirname, '..', 'SETTINGS', 'BUGS', 'test.json'), JSON.stringify({ location: 'correct!' }, null, 4), 'utf8');
-
+const bugsdir = path.join(__dirname, '..', 'src', 'app', 'SETTINGS', 'BUGS');
 
 function date(d) {
   if (!d) { d = new Date(); }
@@ -100,7 +99,7 @@ const db = module.exports = {
     db.log(EMPTY, 'cache.db v 1.0.3');
     db.name = name;
     // const store = new Corestore(`./db/${name}`);
-    // await store.ready();
+    await store.ready();
     db.drive = new Hyperdrive(store); // need keypair or key ?
     await db.drive.ready();
     const trim = db.drive.db.core.length; // keep tiny on startup
@@ -208,7 +207,9 @@ const db = module.exports = {
       if ([undefined, 'undefined'].indexOf(db[BUG.NET][F][_id]) !== -1) { e = e ? (e + '\nJSON.parse result is also undefined') : (new Error('JSON.parse result is undefined').stack); }
       if (e) {
         db.log(BUG, `db.rec[` + BUG.NET + `][` + F + `][` + _id + `] JSON ERROR >#>` + caller + `<#< ` + (e.replace('Error', ':')));
-        //db.streamFile(path.join(__dirname, '..', 'SETTINGS', 'BUGS', F + '.' + _id + '.db'), new Error('NON-JSON').stack, 'utf-8', function () {});
+        ;(async function() {
+          await fs.writeFile(path.join(bugsdir, `${F}.${_id}.db`), new Error('NON-JSON').stack, 'utf8');
+        })();
       }
       else if (!db.prevent[F][_id]) {
         if (db.que[F][_id] && db.que[F][_id].length > 4) {
@@ -326,7 +327,6 @@ const db = module.exports = {
       if (!db.sorts[F][cat]) { db.sorts[F][cat] = {}; }
       db.sorts[F][cat][_id] = val;
     }
-    // return
   },
   unsort: function (BUG, F, _id) {
     if (BUG.NET == 'live') {
@@ -335,7 +335,6 @@ const db = module.exports = {
         delete db.sorts[F]?.[k[i]]?.[_id];
       }
     }
-    // return
   },
   calc: function (BUG, F, _id, x, operator, input, note) { // note is '( + name val )'
     const key = F + '/' + _id;
@@ -382,7 +381,6 @@ const db = module.exports = {
       db.log(BUG, `db.calc[` + BUG.NET + `][` + F + `][` + _id + `] ` + before + ` ` + (operator == 'add' ? `+` : `-`) + ` ` + input + ` = ` + after + ` >#>` + note + `<#<`);
     }
     dbUG(F, x, after);
-    // return
   },
   mod: function (BUG, F, _id, x, answer, note) { // note is '( + name val )'
     const key = F + '/' + _id;
@@ -416,7 +414,6 @@ const db = module.exports = {
       db.log(BUG, `db.mod[` + BUG.NET + `][` + F + `][` + _id + `]=` + answer + ` >#>` + note + `<#<`);
       db[BUG.NET][F][_id] = answer;
     }
-    // return
   },
   cut: function (BUG, F, _id, x) {
     const key = F + '/' + _id;
@@ -445,6 +442,5 @@ const db = module.exports = {
       db.log(BUG, `db.cut[` + BUG.NET + `][` + F + `][` + _id + `][` + x[0] + `]`);
       delete db[BUG.NET][F][_id][x[0]];
     }
-    // return
   }
 };
