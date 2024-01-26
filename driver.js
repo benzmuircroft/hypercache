@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 // const Corestore = require('corestore');
-const Hyperdrive = require('hyperdrive');
+const Hyperbee = require('hyperbee');
 const copy = require(path.join(__dirname, '..', 'src', 'util', 'copy.js'))({ proto: true, circles: false });
 const CODE = require(path.join(__dirname, '..', 'src', 'util', 'CODE.js'));
 const fast = require(path.join(__dirname, '..', 'src', 'util', 'to-fast-properties.js'));
@@ -13,7 +13,6 @@ const GUB = {
     if (BUG?.ACTIVE) {
       BUG.PUSH(o);
     }
-    // return
   }
 };
 
@@ -37,20 +36,11 @@ function date(d) {
   const strTime = hours + ':' + minutes + ':' + seconds + ampm;
   return days[day] + ' ' + date + ' ' + months[month] + ' ' + strTime;
 }
-
-const db = {
+const db = module.exports = {
   name: undefined,
   previous: 'protect',
   current: 'running',
   manual_override_cb: undefined,
-  streamFile: function(path, content) {
-    return new Promise((resolve) => {
-      const ws = db.drive.createWriteStream(path);
-      ws.write(content);
-      ws.end();
-      ws.once('close', () => resolve());
-    })
-  },
   log: function (BUG, d) {
     if (typeof d == 'string' && d.indexOf('(Too Long To Log)') !== -1) {
       d = d.split(']=');
@@ -78,7 +68,7 @@ const db = {
     else if (['running', 'protect'].indexOf(previous) !== -1 && current == 'shutdown') {
       db.protect = true;
       db.log(EMPTY, 'db mode is ' + db.current);
-      db.mode = function (ignore) { };
+      db.mode = function () { }; // ignored
       db.shutdown = [setInterval(function () {
         let exit = true;
         for (let c in db.que) {
@@ -96,30 +86,37 @@ const db = {
       // return
     }
   },
-  load: async function (name, store) {
+  load: async function (folder, input) {
     db.log(EMPTY, 'cache.db v 1.0.3');
-    db.name = name;
-    // const store = new Corestore(`./db/${name}`);
-    await store.ready();
-    db.drive = new Hyperdrive(store); // need keypair or key ?
-    await db.drive.ready();
-    const trim = db.drive.db.core.length; // keep tiny on startup
-    const view = db.drive.db.createReadStream();
-    for await (const entry of view) {
-      await db.drive.db.put(entry.key.toString(), entry.value.toString());
-    }
-    await db.drive.db.core.clear(1, trim);
-    db['live'] = require(path.join(__dirname, '..', 'db', db.name + '_dbs.json'));
+    db.name = folder;
+    // const store = new Corestore(`./db/${folder}`);
+    // await store.ready();
+    // const input = store.get({ name: folder });
+    db.hyperbee = new Hyperbee(input); // need keypair or key ?
+    await db.hyperbee.ready();
+    db['live'] = require(path.join(__dirname, '..', 'db', db.name, 'dbs.json'));
     db.prevent = copy(db['live']);
     db.saver = copy(db['live']);
     db.debug = copy(db['live']);
     db.que = copy(db['live']);
     db.block = copy(db['live']);
-    for await (const F of db['live']) {
-      for await (const _id of db.drive.list(`/${F}`, { recursive: false })) {
-        db['live'][F][_id] = JSON.parse((await db.drive.get(`/${F}/${_id}`)).toString());
+    db.sub = {};
+    for (const F in db['live']) {
+      db['live'][F] = {};
+      db.sub[F] = db.hyperbee.sub(F);
+      await db.sub[F].ready();
+      const trim = db.sub[F].core.length;
+      if (trim > 1) {
+        const view = db.sub[F].createReadStream();
+        for await (const entry of view) {
+          const _id = entry.key.toString();
+          await db.sub[F].put(_id, entry.value.toString());
+          db['live'][F][_id] = JSON.parse(entry.value.toString());
+        }
+        await db.sub[F].core.clear(1, trim);
       }
     }
+    fast(db);
   },
   del: async function (BUG, F, _id, caller) {
     // verifying the type of the parameters passed in to the function. It is checking that F is a string, _id is a string and caller is a string. If any of these are not true, an error is thrown. 
@@ -136,8 +133,10 @@ const db = {
         delete db.debug[F][_id];
         delete db.block[F][_id];
         delete db.prevent[F][_id];
+        fast(db);
         setTimeout(function (db, BUG, F, _id) {
           delete db[BUG.NET][F][_id];
+          fast(db);
         }, 4181, db, BUG, F, _id);
       }
     }
@@ -167,12 +166,13 @@ const db = {
             db[BUG.NET][F][_id][k] = {};
           }
         }
+        fast(db);
       }
       catch (e) { }
       if (BUG.NET == 'live') {
         db[BUG.NET][F][_id].DELETED = 'Deleted by: ' + caller + ' and should stay deleted!';
         db.unsort(BUG, F, _id);
-        await db.drive.del(`/${F}/${_id}`);
+        await db.sub[F].del(_id);
         clearTimeout(db.saver[F][_id]);
         db.saver[F][_id] = null;
         delete db.saver[F][_id];
@@ -185,6 +185,7 @@ const db = {
         delete db.block[F][_id];
         delete db.prevent[F][_id];
         db.change(BUG, F, _id);
+        fast(db);
       }
     }
   },
@@ -223,19 +224,21 @@ const db = {
         }
         db.log(BUG, `db.rec[` + BUG.NET + `][` + F + `][` + _id + `] OK >#>` + caller + `<#<`);
         db.change(BUG, F, _id);
+        fast(db);
         return 'saving';
       }
       else {
         db.log(BUG, `db.rec[` + BUG.NET + `][` + F + `][` + _id + `] BOUNCE >#>` + caller + `<#<\n` + db.prevent[F][_id]);
         db.change(BUG, F, _id);
+        fast(db);
         return 'bounce';
       }
     }
   },
   save: async function (F, _id) {
     delete db.saver[F][_id];
-    await db.streamFile(`/${F}/${_id}`, SAFE.stringify(db['live'][F][_id], undefined, '\t'), 'utf8');
-    await db.drive.get(`/${F}/${_id}`); // needed ?
+    await db.sub[F].put(_id, SAFE.stringify(db['live'][F][_id], undefined, '\t'));
+    await db.sub[F].get(_id); // needed ?
   },
   protect: undefined, // if this is on db.wait will not let anything new pass through
   prevent: undefined, // cant add files during/after delete
@@ -261,6 +264,7 @@ const db = {
         BUG.INDEX[BUG.NET][key] = 'G.db[' + BUG.NET + '][' + F + '][' + _id + ']';
         BUG.BEFORE[BUG.NET][key] = copy(db['live'][F][_id]); // temp uses live
         if (BUG.NET !== 'live') { db[BUG.NET][F][_id] = copy(BUG.BEFORE[BUG.NET][key]); } // the actual snapshot!
+        fast(db);
         BUG.LOCKED(BUG, F, _id);
       }
       if (!db.block[F][_id] || ((BUG.STEPS || ['live'])[0] !== 'live' && BUG.NET == 'live' && db.block[F][_id] && db.block[F][_id].indexOf((BUG.STEPS || ['NoCoNfLiCt'])[0]) == 8)) { // can do now (if not blocked OR test was started but is live now and blocked but blocked by the test)
@@ -270,6 +274,7 @@ const db = {
         db.debug[F][_id] = setTimeout(function (BUG, F, _id, caller) {
           db.log(BUG, `db.wait[` + BUG.NET + `][` + F + `][` + _id + `] NEVER UNBLOCKED, DID THE JOB LAST TOO LONG? >#>` + caller + `<#< (Blocked by self ` + db.block[F][_id] + `?)`);
         }, 46368, BUG, F, _id, caller);
+        fast(db);
         cb(BUG);
       }
       else { // add to que
@@ -283,6 +288,7 @@ const db = {
         if (!db.que[F][_id] || !Array.isArray(db.que[F][_id])) { db.que[F][_id] = []; }
         db.que[F][_id] = db.que[F][_id].concat([[cb, caller, BUG, new Error().stack.replace('Error', 'Stack')]]);
         db.log(BUG, `db.wait[` + BUG.NET + `][` + F + `][` + _id + `] ... QUEUED [` + db.que[F][_id].length + `] >#>` + (new Error().stack.replace('Error', caller)) + `<#< (Blocked by ` + db.block[F][_id] + `?)`);
+        fast(db);
       }
     }
   },
@@ -303,6 +309,7 @@ const db = {
       delete db.que[F][_id];
       BUG.AUDIT.push('db.change[' + BUG.NET + '][' + F + '][' + _id + '] EXIT <#< (end of queue for this db item)');
     }
+    fast(db);
   },
   shift: function (BUG, F, _id) {
     if (db.que[F][_id]?.length) {
@@ -319,6 +326,7 @@ const db = {
       }
       else if (db.que[F][_id]?.length) { db.shift(BUG, F, _id, undefined); }
     }
+    fast(db);
   },
   sorts: {},
   sort: function (BUG, F, cat, _id, val) {
@@ -328,6 +336,7 @@ const db = {
       if (!db.sorts[F][cat]) { db.sorts[F][cat] = {}; }
       db.sorts[F][cat][_id] = val;
     }
+    fast(db);
   },
   unsort: function (BUG, F, _id) {
     if (BUG.NET == 'live') {
@@ -336,6 +345,7 @@ const db = {
         delete db.sorts[F]?.[k[i]]?.[_id];
       }
     }
+    fast(db);
   },
   calc: function (BUG, F, _id, x, operator, input, note) { // note is '( + name val )'
     const key = F + '/' + _id;
@@ -382,6 +392,7 @@ const db = {
       db.log(BUG, `db.calc[` + BUG.NET + `][` + F + `][` + _id + `] ` + before + ` ` + (operator == 'add' ? `+` : `-`) + ` ` + input + ` = ` + after + ` >#>` + note + `<#<`);
     }
     dbUG(F, x, after);
+    fast(db);
   },
   mod: function (BUG, F, _id, x, answer, note) { // note is '( + name val )'
     const key = F + '/' + _id;
@@ -415,6 +426,7 @@ const db = {
       db.log(BUG, `db.mod[` + BUG.NET + `][` + F + `][` + _id + `]=` + answer + ` >#>` + note + `<#<`);
       db[BUG.NET][F][_id] = answer;
     }
+    fast(db);
   },
   cut: function (BUG, F, _id, x) {
     const key = F + '/' + _id;
@@ -443,7 +455,6 @@ const db = {
       db.log(BUG, `db.cut[` + BUG.NET + `][` + F + `][` + _id + `][` + x[0] + `]`);
       delete db[BUG.NET][F][_id][x[0]];
     }
+    fast(db);
   }
 };
-
-module.exports = db;
