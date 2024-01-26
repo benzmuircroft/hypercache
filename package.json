@@ -1,21 +1,21 @@
 {
   "name": "hypercachedb",
   "version": "0.0.1",
-  "description": "An implimentation of cachedb for hyperdrive",
+  "description": "An implimentation of cachedb for hyperbee",
   "main": "driver.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/benzmuircroft/hypercachedb"
   },
   "dependencies": {
-    "hyperdrive": "^11.6.3"
+    "hyperbee": "^2.18.1"
   },
   "keywords": [
     "local-first",
     "offline-first",
     "distributed",
     "p2p",
-    "hyperdrive",
+    "hyperbee",
     "corestore",
     "database"
   ],
