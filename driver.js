@@ -1,5 +1,4 @@
 const fs = require('fs').promises;
-// const Corestore = require('corestore');
 const Hyperbee = require('hyperbee');
 const copy = require(path.join(__dirname, '..', 'src', 'util', 'copy.js'))({ proto: true, circles: false });
 const CODE = require(path.join(__dirname, '..', 'src', 'util', 'CODE.js'));
@@ -13,6 +12,7 @@ const GUB = {
     if (BUG?.ACTIVE) {
       BUG.PUSH(o);
     }
+    // return
   }
 };
 
@@ -86,35 +86,33 @@ const db = module.exports = {
       // return
     }
   },
-  load: async function (folder, input) {
+  load: async function (folder, store, debug) {
+    db.debug = debug;
     db.log(EMPTY, 'cache.db v 1.0.3');
     db.name = folder;
-    // const store = new Corestore(`./db/${folder}`);
-    // await store.ready();
-    // const input = store.get({ name: folder });
-    db.hyperbee = new Hyperbee(input); // need keypair or key ?
-    await db.hyperbee.ready();
     db['live'] = require(path.join(__dirname, '..', 'db', db.name, 'dbs.json'));
     db.prevent = copy(db['live']);
     db.saver = copy(db['live']);
     db.debug = copy(db['live']);
     db.que = copy(db['live']);
     db.block = copy(db['live']);
-    db.sub = {};
+    db.hyperbee = {};
     for (const F in db['live']) {
       db['live'][F] = {};
-      db.sub[F] = db.hyperbee.sub(F);
-      await db.sub[F].ready();
-      const trim = db.sub[F].core.length;
-      if (trim > 1) {
-        const view = db.sub[F].createReadStream();
-        for await (const entry of view) {
-          const _id = entry.key.toString();
-          await db.sub[F].put(_id, entry.value.toString());
-          db['live'][F][_id] = JSON.parse(entry.value.toString());
-        }
-        await db.sub[F].core.clear(1, trim);
+      const input = store.get({ name: F }); // need keypair or key ?
+      await input.ready();
+      db.hyperbee[F] = new Hyperbee(input);
+      await db.hyperbee[F].ready();
+      if (!await db.hyperbee[F].get('0')) await db.hyperbee[F].put('0', JSON.stringify(0));
+      const trim = db.hyperbee[F].core.length;
+      const view = db.hyperbee[F].createReadStream();
+      for await (const entry of view) { // dont assume
+        const _id = entry.key.toString();
+        const obj = entry.value.toString();
+        await db.hyperbee[F].put(_id, obj);
+        if (_id != '0') db['live'][F][_id] = JSON.parse(obj);
       }
+      await db.hyperbee[F].core.clear(1, trim);
     }
     fast(db);
   },
@@ -172,7 +170,7 @@ const db = module.exports = {
       if (BUG.NET == 'live') {
         db[BUG.NET][F][_id].DELETED = 'Deleted by: ' + caller + ' and should stay deleted!';
         db.unsort(BUG, F, _id);
-        await db.sub[F].del(_id);
+        await db.hyperbee[F].del(_id);
         clearTimeout(db.saver[F][_id]);
         db.saver[F][_id] = null;
         delete db.saver[F][_id];
@@ -189,7 +187,7 @@ const db = module.exports = {
       }
     }
   },
-  rec: function (BUG, F, _id, caller) {
+  rec: async function (BUG, F, _id, caller) {
     if (typeof F !== 'string' || typeof _id !== 'string' || typeof caller !== 'string') { throw new Error(['malformed params: ', 'F:', typeof F, '_id:', typeof _id, 'caller:', typeof caller, 'caller:', caller]); }
     else if (BUG.NET !== 'live') {
       db.change(BUG, F, _id);
@@ -235,10 +233,15 @@ const db = module.exports = {
       }
     }
   },
-  save: async function (F, _id) {
-    delete db.saver[F][_id];
-    await db.sub[F].put(_id, SAFE.stringify(db['live'][F][_id], undefined, '\t'));
-    await db.sub[F].get(_id); // needed ?
+  save: function (F, _id) {
+    (async function (F, _id) {
+      delete db.saver[F][_id];
+      await db.hyperbee[F].put(_id, SAFE.stringify(db['live'][F][_id]));
+      if (db.debug) {
+        const saved = await db.hyperbee[F].get(_id);
+        console.log('saved', saved.key.toString(), JSON.parse(saved.value.toString()));
+      }
+    })(F, _id);
   },
   protect: undefined, // if this is on db.wait will not let anything new pass through
   prevent: undefined, // cant add files during/after delete
