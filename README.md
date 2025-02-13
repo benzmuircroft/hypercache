@@ -6,3 +6,5 @@ A large object state machine with a cached ram protection layer of a hyperbee/ti
 - if readable from a corestore then it becomes a db
 
 Do not use for production yet. This will become fuller as time goes on ...
+
+**A large object state machine with a cached ram protection layer that locks and replicates a tinybee's paused state. Errors only hit the replicated cache layer and are recorded as bug reports.**
