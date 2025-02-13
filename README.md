@@ -3,5 +3,6 @@ A large object state machine with a cached ram protection layer of a hyperbee/ti
 
 - single deligated writer (awarded role change)
 - bugs are pre-tested during multi value lock(s) on the large object
+- if readable from a corestore then it becomes a db
 
 Do not use for production yet. This will become fuller as time goes on ...
