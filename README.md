@@ -1,4 +1,13 @@
 # 🕳🥊 hypercache 🧼
+
+## Warning
+Do not use, this is yet to be recreated from a centeralized version.
+
+## TODO
+- This is sudo code so, upload the current version
+- rebuild the GUB bug reverser and reporter
+
+## Explanation
 A large object state machine with a cached ram protection layer of a hyperbee/tinybee ( todo: add Gub bug mitigation layer) This is a single-writer, large object cache of folders/files that can prevent errors on a test copy cache
 
 - single deligated writer (awarded by role change)
