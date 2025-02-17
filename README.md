@@ -1,7 +1,7 @@
 # 🕳🥊 hypercache 🧼
 
 ## Explanation
-**A large object state machine with a cached ram protection layer that locks/replicates a tinybee's paused state. Errors only hit the replicated cache layer and are recorded as bug reports so it always stays clean. (WIP)**
+**A large object state machine with a cached ram protection layer that locks/replicates a tinybee's paused state. Errors only hit the replicated cache layer and are recorded as bug reports; so it always stays clean. (WIP)**
 
 - Single deligated writer (awarded by role change)
 - Bugs are pre-tested during multi value lock(s) on the large object and saved as detailed bug reports (where,what,when,who,why)
