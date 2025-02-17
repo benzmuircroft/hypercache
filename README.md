@@ -13,5 +13,3 @@ Do not use, this is yet to be recreated from a centeralized version.
 - single deligated writer (awarded by role change)
 - bugs are pre-tested during multi value lock(s) on the large object and saved as bug detailed reports (where,what,when,who,why)
 - if readable from a corestore then it becomes a db
-
-Do not use for production yet. This will become fuller as time goes on ...
