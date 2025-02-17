@@ -12,4 +12,4 @@ Do not use, this is yet to be recreated from a centeralized version.
 
 - Single deligated writer (awarded by role change)
 - Bugs are pre-tested during multi value lock(s) on the large object and saved as bug detailed reports (where,what,when,who,why)
-- If readable from a corestore then it becomes a db
+- If readable from a corestore then it can merge visually with other parallel-formatted hypercache's and users will see it as a db
